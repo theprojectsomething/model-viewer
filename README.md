@@ -1,3 +1,18 @@
+> ## 🛠 NOTE: Bleeding edge fork
+> The primary [@google/model-viewer](https://github.com/google/model-viewer/) repo is a hefty 2GB+ monorepo that is currently in fast-track development, meaning important changes are coming thick and fast - too fast and unstable for npmjs(!). This clone repo simply adds a new 'release' branch in an attempt to maintain a bleeding edge, **npm installable** and `<scriptable>` version for development purposes:
+
+```sh
+npm install https://github.com/theprojectsomething/model-viewer/tarball/model-viewer-release
+```
+```html
+<script type="module" src="https://ghcdn.rawgit.org/theprojectsomething/model-viewer/model-viewer-release/dist/model-viewer.js"></script>
+<script nomodule src="https://ghcdn.rawgit.org/theprojectsomething/model-viewer/model-viewer-release/dist/model-viewer-umd.js"></script>
+```
+
+For current 'stable' releases please use the **npmjs** instructions below.
+
+# ===
+
 > ## 🛠 Status: In Development
 > `<model-viewer>` is currently in development. It's on the fast track to a 1.0 release, so we encourage you to use it and give us your feedback, but there are things that haven't been finalized yet and you can expect some changes.
 

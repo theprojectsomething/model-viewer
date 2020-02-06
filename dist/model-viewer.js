@@ -1062,10 +1062,6 @@ template.innerHTML = `
   top: 0;
 }
 
-.annotation-wrapper {
-  pointer-events: auto;
-}
-
 canvas {
   width: 100%;
   height: 100%;
@@ -58794,6 +58790,7 @@ const normalizeUnit = (() => {
 })();
 
 const $annotationRenderer = Symbol('annotationRenderer');
+const $annotationView = Symbol('annotationView');
 const $updateHotspots = Symbol('updateHotspots');
 const $hotspotMap = Symbol('hotspotMap');
 const $mutationCallback = Symbol('mutationCallback');
@@ -58837,13 +58834,14 @@ class Hotspot extends CSS2DObject {
     }
 }
 const AnnotationMixin = (ModelViewerElement) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     class AnnotationModelViewerElement extends ModelViewerElement {
         constructor(...args) {
             super(...args);
-            this[_a] = new CSS2DRenderer();
-            this[_b] = new Map();
-            this[_c] = (mutations) => {
+            this[_a] = new Map();
+            this[_b] = new CSS2DRenderer();
+            this[_c] = new Map();
+            this[_d] = (mutations) => {
                 mutations.forEach((mutation) => {
                     if (!(mutation instanceof MutationRecord) ||
                         mutation.type === 'childList') {
@@ -58856,7 +58854,7 @@ const AnnotationMixin = (ModelViewerElement) => {
                     }
                 });
             };
-            this[_d] = new MutationObserver(this[$mutationCallback]);
+            this[_e] = new MutationObserver(this[$mutationCallback]);
             const { domElement } = this[$annotationRenderer];
             domElement.classList.add('annotation-container');
             this.shadowRoot.querySelector('.container').appendChild(domElement);
@@ -58892,15 +58890,26 @@ const AnnotationMixin = (ModelViewerElement) => {
             }
             hotspot.updatePosition(config.position);
             hotspot.updateNormal(config.normal);
+            this[$annotationView].set('update', 1);
         }
-        [(_a = $annotationRenderer, _b = $hotspotMap, _c = $mutationCallback, _d = $observer, $tick$1)](time, delta) {
+        [(_a = $annotationView, _b = $annotationRenderer, _c = $hotspotMap, _d = $mutationCallback, _e = $observer, $tick$1)](time, delta) {
             super[$tick$1](time, delta);
-            this[$updateHotspots]();
-            this[$annotationRenderer].render(this[$scene], this[$scene].activeCamera);
+            const position = this[$annotationView].get('position');
+            if (!position
+                || this[$annotationView].get('update')
+                || this[$scene].activeCamera.position.distanceTo(position) !== 0
+                || this[$scene].camera.getEffectiveFOV() !== this[$annotationView].get('fov')) {
+                this[$annotationView].set('update', 0);
+                this[$annotationView].set('position', this[$scene].camera.position.clone());
+                this[$annotationView].set('fov', this[$scene].camera.getEffectiveFOV());
+                this[$updateHotspots]();
+                this[$annotationRenderer].render(this[$scene], this[$scene].activeCamera);
+            }
         }
         [$onResize](e) {
             super[$onResize](e);
             this[$annotationRenderer].setSize(e.width, e.height);
+            this[$annotationView].set('update', 1);
         }
         [$updateHotspots]() {
             const { children } = this[$scene].pivot;
@@ -58909,11 +58918,20 @@ const AnnotationMixin = (ModelViewerElement) => {
                 if (object instanceof Hotspot) {
                     const view = this[$scene].activeCamera.position.clone();
                     view.sub(object.position);
-                    if (view.dot(object.normal) < 0) {
-                        object.element.classList.add('hide');
-                    }
-                    else {
-                        object.element.classList.remove('hide');
+                    const hide = view.dot(object.normal) < 0;
+                    if (hide !== object.element.classList.contains('hide')) {
+                        const slot = object.element.firstElementChild;
+                        const event = new CustomEvent('hotspot-change', {
+                            bubbles: true,
+                            detail: { hide },
+                        });
+                        if (hide) {
+                            object.element.classList.add('hide');
+                        }
+                        else {
+                            object.element.classList.remove('hide');
+                        }
+                        slot.assignedNodes().forEach((node) => node.dispatchEvent(event));
                     }
                 }
             }
@@ -58936,6 +58954,7 @@ const AnnotationMixin = (ModelViewerElement) => {
                 this[$hotspotMap].set(node.slot, hotspot);
                 this[$scene].pivot.add(hotspot);
             }
+            this[$annotationView].set('update', 1);
         }
         [$removeHotspot](node) {
             if (!(node instanceof HTMLElement)) {
@@ -61283,7 +61302,9 @@ const FocusVisiblePolyfillMixin = (SuperClass) => {
 };
 
 const ModelViewerElement = MagicLeapMixin(AnnotationMixin(StagingMixin(EnvironmentMixin(ControlsMixin(ARMixin(LoadingMixin(AnimationMixin(FocusVisiblePolyfillMixin(ModelViewerElementBase)))))))));
-customElements.define('model-viewer', ModelViewerElement);
+if (!customElements.get('model-viewer')) {
+    customElements.define('model-viewer', ModelViewerElement);
+}
 
 export { ModelViewerElement };
 //# sourceMappingURL=model-viewer.js.map

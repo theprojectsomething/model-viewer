@@ -1,5 +1,6 @@
 /// <reference types="resize-observer-browser" />
 import { UpdatingElement } from 'lit-element/lib/updating-element';
+import { Vector3 } from 'three';
 import { ModelScene } from './three-components/ModelScene.js';
 import { ContextLostEvent, Renderer } from './three-components/Renderer.js';
 import { ProgressTracker } from './utilities/progress-tracker.js';
@@ -31,6 +32,18 @@ export declare const $renderer: unique symbol;
 export declare const $progressTracker: unique symbol;
 export declare const $getLoaded: unique symbol;
 export declare const $getModelIsVisible: unique symbol;
+export interface Vector3D {
+    x: number;
+    y: number;
+    z: number;
+    toString(): string;
+}
+export declare const toVector3D: (v: Vector3) => {
+    x: number;
+    y: number;
+    z: number;
+    toString(): string;
+};
 interface ToBlobOptions {
     mimeType?: string;
     qualityArgument?: number;

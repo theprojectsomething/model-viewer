@@ -1,8 +1,11 @@
 import ModelViewerElementBase from './model-viewer-base.js';
 export declare const ModelViewerElement: {
+    new (...args: any[]): import("./features/scene-graph.js").SceneGraphInterface;
+    prototype: import("./features/scene-graph.js").SceneGraphInterface;
+} & object & {
     new (...args: any[]): import("./features/magic-leap.js").MagicLeapInterface;
     prototype: import("./features/magic-leap.js").MagicLeapInterface;
-} & object & {
+} & {
     new (...args: any[]): import("./features/annotation.js").AnnotationInterface;
     prototype: import("./features/annotation.js").AnnotationInterface;
 } & {

@@ -457,19 +457,11 @@ suite('parsers', () => {
             expect$1(parseExpressions('rgba(255, calc(100 + var(--blue)), 0, 0.25)'))
                 .to.be.eql([expressionNode([functionNode('rgba', [
                         expressionNode([numberNode(255, null)]),
-                        expressionNode([
-                            functionNode('calc', [
-                                expressionNode([
+                        expressionNode([functionNode('calc', [expressionNode([
                                     numberNode(100, null),
                                     operatorNode('+'),
-                                    functionNode('var', [
-                                        expressionNode([
-                                            identNode('--blue')
-                                        ])
-                                    ])
-                                ])
-                            ])
-                        ]),
+                                    functionNode('var', [expressionNode([identNode('--blue')])])
+                                ])])]),
                         expressionNode([numberNode(0, null)]),
                         expressionNode([numberNode(0.25, null)]),
                     ])])]);
@@ -493,17 +485,7 @@ suite('parsers', () => {
             suite('mismatched parens', () => {
                 test('trailing paren is gracefully dropped', () => {
                     expect$1(parseExpressions('calc(calc(123)))')).to.be.eql([
-                        expressionNode([
-                            functionNode('calc', [
-                                expressionNode([
-                                    functionNode('calc', [
-                                        expressionNode([
-                                            numberNode(123, null)
-                                        ])
-                                    ])
-                                ])
-                            ])
-                        ])
+                        expressionNode([functionNode('calc', [expressionNode([functionNode('calc', [expressionNode([numberNode(123, null)])])])])])
                     ]);
                 });
             });
@@ -1078,9 +1060,7 @@ suite('evaluators', () => {
             setup(() => {
                 intrinsics = {
                     basis: [numberNode(1, 'rad'), numberNode(1, 'rad'), numberNode(1, 'm')],
-                    keywords: {
-                        auto: [numberNode(2, 'rad'), null, numberNode(200, '%')]
-                    }
+                    keywords: { auto: [numberNode(2, 'rad'), null, numberNode(200, '%')] }
                 };
             });
             test('evaluates to defaults (e.g., auto) for omitted expressions', () => {
@@ -1088,24 +1068,16 @@ suite('evaluators', () => {
                 expect$4(evaluator.evaluate()).to.be.eql([2, 1, 2]);
             });
             test('substitutes the keyword auto for the related intrinsic value', () => {
-                const evaluator = new StyleEvaluator([expressionNode([
-                        identNode('auto')
-                    ])], intrinsics);
+                const evaluator = new StyleEvaluator([expressionNode([identNode('auto')])], intrinsics);
                 expect$4(evaluator.evaluate()).to.be.eql([2, 1, 2]);
             });
             test('treats missing values as equivalent to auto', () => {
                 const evaluatorOne = new StyleEvaluator([expressionNode([])], intrinsics);
-                const evaluatorTwo = new StyleEvaluator([expressionNode([
-                        identNode('auto'),
-                        identNode('auto'),
-                        identNode('auto')
-                    ])], intrinsics);
+                const evaluatorTwo = new StyleEvaluator([expressionNode([identNode('auto'), identNode('auto'), identNode('auto')])], intrinsics);
                 expect$4(evaluatorOne.evaluate()).to.be.eql(evaluatorTwo.evaluate());
             });
             test('scales the basis by an input percentage', () => {
-                const evaluator = new StyleEvaluator([expressionNode([
-                        numberNode(300, '%')
-                    ])], intrinsics);
+                const evaluator = new StyleEvaluator([expressionNode([numberNode(300, '%')])], intrinsics);
                 expect$4(evaluator.evaluate()).to.be.eql([3, 1, 2]);
             });
             test('evaluates spherical values from basic expressions', () => {
@@ -1120,13 +1092,11 @@ suite('evaluators', () => {
                 const evaluator = new StyleEvaluator([expressionNode([
                         numberNode(150, '%'),
                         numberNode(180, 'deg'),
-                        functionNode('calc', [
-                            expressionNode([
+                        functionNode('calc', [expressionNode([
                                 numberNode(200, '%'),
                                 operatorNode('*'),
                                 functionNode('calc', [expressionNode([numberNode(3, 'm')])]),
-                            ])
-                        ])
+                            ])])
                     ])], intrinsics);
                 expect$4(evaluator.evaluate()).to.be.eql([1.5, Math.PI, 6]);
             });
@@ -1134,15 +1104,13 @@ suite('evaluators', () => {
                 const evaluator = new StyleEvaluator([expressionNode([
                         numberNode(1, 'rad'),
                         numberNode(180, 'deg'),
-                        functionNode('calc', [
-                            expressionNode([
+                        functionNode('calc', [expressionNode([
                                 numberNode(1, 'm'),
                                 operatorNode('+'),
                                 functionNode('calc', [expressionNode([numberNode(1, null)])]),
                                 operatorNode('+'),
                                 functionNode('env', [expressionNode([identNode('window-scroll-y')])])
-                            ])
-                        ])
+                            ])])
                     ])], intrinsics);
                 expect$4(evaluator.evaluate()).to.be.eql([1, Math.PI, 2]);
             });
@@ -2475,8 +2443,12 @@ canvas.show {
   transition: opacity 0.5s;
 }
 
+.annotation-wrapper ::slotted(*) {
+  pointer-events: initial;
+}
+
 .hide ::slotted(*) {
-  opacity: var(--min-opacity, 0.25);
+  opacity: var(--min-hotspot-opacity, 0.25);
 }
 
 .slot.poster {
@@ -57553,8 +57525,10 @@ class ARRenderer extends EventDispatcher {
         this[$currentSession].addEventListener('end', () => {
             this[$postSessionCleanup]();
         }, { once: true });
-        this[$refSpace] = await this[$currentSession].requestReferenceSpace('local');
-        this[$viewerRefSpace] = await this[$currentSession].requestReferenceSpace('viewer');
+        this[$refSpace] =
+            await this[$currentSession].requestReferenceSpace('local');
+        this[$viewerRefSpace] =
+            await this[$currentSession].requestReferenceSpace('viewer');
         this[$tick]();
     }
     async stopPresenting() {
@@ -59271,6 +59245,16 @@ const $renderer = Symbol('renderer');
 const $progressTracker = Symbol('progressTracker');
 const $getLoaded = Symbol('getLoaded');
 const $getModelIsVisible = Symbol('getModelIsVisible');
+const toVector3D = (v) => {
+    return {
+        x: v.x,
+        y: v.y,
+        z: v.z,
+        toString() {
+            return `${this.x}m ${this.y}m ${this.z}m`;
+        }
+    };
+};
 class ModelViewerElementBase extends UpdatingElement {
     constructor() {
         super();
@@ -60013,9 +59997,7 @@ class MockXRFrame {
     getPose(_xrSpace, _frameOfRef) {
         return {};
     }
-    getViewerPose(_referenceSpace) {
-        return {};
-    }
+    getViewerPose(_referenceSpace) { return {}; }
     getHitTestResults(_xrHitTestSource) {
         return [];
     }
@@ -60049,9 +60031,7 @@ suite('ARRenderer', () => {
                     return inputSources;
                 }
                 async requestHitTestSource(_options) {
-                    const result = {
-                        cancel: () => { }
-                    };
+                    const result = { cancel: () => { } };
                     this.hitTestSources.add(result);
                     return result;
                 }
@@ -62022,8 +62002,10 @@ const $updateHotspots = Symbol('updateHotspots');
 const $hotspotMap = Symbol('hotspotMap');
 const $mutationCallback = Symbol('mutationCallback');
 const $observer = Symbol('observer');
+const $pixelPosition = Symbol('pixelPosition');
 const $addHotspot = Symbol('addHotspot');
 const $removeHotspot = Symbol('removeHotspot');
+const raycaster = new Raycaster();
 class Hotspot extends CSS2DObject {
     constructor(config) {
         const wrapper = document.createElement('div');
@@ -62061,7 +62043,7 @@ class Hotspot extends CSS2DObject {
     }
 }
 const AnnotationMixin = (ModelViewerElement) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     class AnnotationModelViewerElement extends ModelViewerElement {
         constructor(...args) {
             super(...args);
@@ -62082,6 +62064,7 @@ const AnnotationMixin = (ModelViewerElement) => {
                 });
             };
             this[_e] = new MutationObserver(this[$mutationCallback]);
+            this[_f] = new Vector2();
             const { domElement } = this[$annotationRenderer];
             domElement.classList.add('annotation-container');
             this.shadowRoot.querySelector('.container').appendChild(domElement);
@@ -62119,13 +62102,35 @@ const AnnotationMixin = (ModelViewerElement) => {
             hotspot.updateNormal(config.normal);
             this[$annotationView].set('update', 1);
         }
-        [(_a = $annotationView, _b = $annotationRenderer, _c = $hotspotMap, _d = $mutationCallback, _e = $observer, $tick$1)](time, delta) {
+        positionAndNormalFromPoint(pixelX, pixelY) {
+            const { width, height } = this[$scene];
+            this[$pixelPosition]
+                .set(pixelX / width, pixelY / height)
+                .multiplyScalar(2)
+                .subScalar(1);
+            this[$pixelPosition].y *= -1;
+            raycaster.setFromCamera(this[$pixelPosition], this[$scene].getCamera());
+            const hits = raycaster.intersectObject(this[$scene], true);
+            if (hits.length === 0) {
+                return null;
+            }
+            const hit = hits[0];
+            if (hit.face == null) {
+                return null;
+            }
+            const worldToPivot = new Matrix4().getInverse(this[$scene].pivot.matrixWorld);
+            const position = toVector3D(hit.point.applyMatrix4(worldToPivot));
+            const normal = toVector3D(hit.face.normal.applyMatrix4(hit.object.matrixWorld)
+                .applyMatrix4(worldToPivot));
+            return { position: position, normal: normal };
+        }
+        [(_a = $annotationView, _b = $annotationRenderer, _c = $hotspotMap, _d = $mutationCallback, _e = $observer, _f = $pixelPosition, $tick$1)](time, delta) {
             super[$tick$1](time, delta);
             const position = this[$annotationView].get('position');
-            if (!position
-                || this[$annotationView].get('update')
-                || this[$scene].activeCamera.position.distanceTo(position) !== 0
-                || this[$scene].camera.getEffectiveFOV() !== this[$annotationView].get('fov')) {
+            if (!position || this[$annotationView].get('update') ||
+                this[$scene].activeCamera.position.distanceTo(position) !== 0 ||
+                this[$scene].camera.getEffectiveFOV() !==
+                    this[$annotationView].get('fov')) {
                 this[$annotationView].set('update', 0);
                 this[$annotationView].set('position', this[$scene].camera.position.clone());
                 this[$annotationView].set('fov', this[$scene].camera.getEffectiveFOV());
@@ -62141,22 +62146,23 @@ const AnnotationMixin = (ModelViewerElement) => {
         [$updateHotspots]() {
             const { children } = this[$scene].pivot;
             for (let i = 0, l = children.length; i < l; i++) {
-                const object = children[i];
-                if (object instanceof Hotspot) {
+                const hotspot = children[i];
+                if (hotspot instanceof Hotspot) {
                     const view = this[$scene].activeCamera.position.clone();
-                    view.sub(object.position);
-                    const hide = view.dot(object.normal) < 0;
-                    if (hide !== object.element.classList.contains('hide')) {
-                        const slot = object.element.firstElementChild;
+                    view.sub(hotspot.position);
+                    const normalWorld = hotspot.normal.clone().transformDirection(this[$scene].pivot.matrixWorld);
+                    const hidden = view.dot(normalWorld) < 0;
+                    if (hidden !== hotspot.element.classList.contains('hide')) {
+                        const slot = hotspot.element.firstElementChild;
                         const event = new CustomEvent('hotspot-change', {
                             bubbles: true,
-                            detail: { hide },
+                            detail: { visible: !hidden },
                         });
-                        if (hide) {
-                            object.element.classList.add('hide');
+                        if (hidden) {
+                            hotspot.element.classList.add('hide');
                         }
                         else {
-                            object.element.classList.remove('hide');
+                            hotspot.element.classList.remove('hide');
                         }
                         slot.assignedNodes().forEach((node) => node.dispatchEvent(event));
                     }
@@ -62215,6 +62221,12 @@ const sceneContainsHotspot = (scene, element) => {
     }
     return false;
 };
+const closeToVector3 = (a, b) => {
+    const delta = 0.001;
+    expect$m(a.x).to.be.closeTo(b.x, delta);
+    expect$m(a.y).to.be.closeTo(b.y, delta);
+    expect$m(a.z).to.be.closeTo(b.z, delta);
+};
 suite('ModelViewerElementBase with AnnotationMixin', () => {
     let nextId = 0;
     let tagName;
@@ -62246,7 +62258,7 @@ suite('ModelViewerElementBase with AnnotationMixin', () => {
             hotspot = document.createElement('div');
             hotspot.setAttribute('slot', 'hotspot-1');
             hotspot.setAttribute('data-position', '1m 1m 1m');
-            hotspot.setAttribute('data-normal', '1m 0m 0m');
+            hotspot.setAttribute('data-normal', '0m 0m 1m');
             element.appendChild(hotspot);
             await timePasses();
             numSlots = scene.pivot.children.length;
@@ -62259,13 +62271,43 @@ suite('ModelViewerElementBase with AnnotationMixin', () => {
             setup(async () => {
                 hotspot2 = document.createElement('div');
                 hotspot2.setAttribute('slot', 'hotspot-1');
-                hotspot2.setAttribute('data-position', '1m 1m 1m');
+                hotspot2.setAttribute('data-position', '0m 1m 2m');
                 hotspot2.setAttribute('data-normal', '1m 0m 0m');
                 element.appendChild(hotspot2);
                 await timePasses();
             });
             test('does not change the slot', () => {
                 expect$m(scene.pivot.children.length).to.be.equal(numSlots);
+            });
+            test('does not change the data', () => {
+                const { position, normal } = scene.pivot.children[numSlots - 1];
+                expect$m(position).to.be.deep.equal(new Vector3(1, 1, 1));
+                expect$m(normal).to.be.deep.equal(new Vector3(0, 0, 1));
+            });
+            test('updateHotspot does change the data', () => {
+                element.updateHotspot({ name: 'hotspot-1', position: '0m 1m 2m', normal: '1m 0m 0m' });
+                const { position, normal } = scene.pivot.children[numSlots - 1];
+                expect$m(position).to.be.deep.equal(new Vector3(0, 1, 2));
+                expect$m(normal).to.be.deep.equal(new Vector3(1, 0, 0));
+            });
+            suite('with a camera', () => {
+                let wrapper;
+                setup(() => {
+                    const camera = element[$scene].getCamera();
+                    camera.position.z = 2;
+                    camera.updateMatrixWorld();
+                    wrapper = scene.pivot.children[numSlots - 1].element;
+                });
+                test('the hotspot is visible', async () => {
+                    await rafPasses();
+                    expect$m(wrapper.classList.contains('hide')).to.be.false;
+                });
+                test('the hotspot is hidden after turning', async () => {
+                    element[$scene].setPivotRotation(Math.PI);
+                    element[$scene].updateMatrixWorld();
+                    await rafPasses();
+                    expect$m(wrapper.classList.contains('hide')).to.be.true;
+                });
             });
             test('and removing it does not remove the slot', async () => {
                 element.removeChild(hotspot);
@@ -62278,6 +62320,32 @@ suite('ModelViewerElementBase with AnnotationMixin', () => {
                 await timePasses();
                 expect$m(scene.pivot.children.length).to.be.equal(numSlots - 1);
             });
+        });
+    });
+    suite('a model-viewer element with a loaded cube', () => {
+        let width = 0;
+        let height = 0;
+        setup(async () => {
+            width = 200;
+            height = 300;
+            element.setAttribute('style', `width: ${width}px; height: ${height}px`);
+            element.src = assetPath('models/cube.gltf');
+            const camera = element[$scene].getCamera();
+            camera.position.z = 2;
+            camera.updateMatrixWorld();
+            await waitForEvent(element, 'load');
+        });
+        test('gets expected hit result', () => {
+            const { position, normal } = element.positionAndNormalFromPoint(width / 2, height / 2);
+            closeToVector3(position, new Vector3(0, 0, 0.5));
+            closeToVector3(normal, new Vector3(0, 0, 1));
+        });
+        test('gets expected hit result when turned', () => {
+            element[$scene].setPivotRotation(-Math.PI / 2);
+            element[$scene].updateMatrixWorld();
+            const { position, normal } = element.positionAndNormalFromPoint(width / 2, height / 2);
+            closeToVector3(position, new Vector3(0.5, 0, 0));
+            closeToVector3(normal, new Vector3(1, 0, 0));
         });
     });
 });
@@ -62752,7 +62820,7 @@ const ControlsMixin = (ModelViewerElement) => {
                 this[$needsRender]();
             }
             this[$controls].update(time, delta);
-            const target = this.getCameraTarget();
+            const target = this[$controls].getTarget();
             if (!this[$scene].pivotCenter.equals(target)) {
                 this[$scene].pivotCenter.copy(target);
                 this[$scene].setPivotRotation(this[$scene].getPivotRotation());
@@ -64541,7 +64609,1512 @@ suite('ModelViewerElementBase with MagicLeapMixin', () => {
     });
 });
 
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * Adapted from WorkerDOM
+ * @see https://github.com/ampproject/worker-dom/blob/master/src/worker-thread/index.amp.ts
+ */
+const ALLOWLISTED_GLOBALS = {
+    Array: true,
+    ArrayBuffer: true,
+    BigInt: true,
+    BigInt64Array: true,
+    BigUint64Array: true,
+    Boolean: true,
+    Cache: true,
+    CustomEvent: true,
+    DataView: true,
+    Date: true,
+    Error: true,
+    EvalError: true,
+    Event: true,
+    EventTarget: true,
+    Float32Array: true,
+    Float64Array: true,
+    Function: true,
+    Infinity: true,
+    Int16Array: true,
+    Int32Array: true,
+    Int8Array: true,
+    Intl: true,
+    JSON: true,
+    Map: true,
+    Math: true,
+    MessagePort: true,
+    MessageEvent: true,
+    MessageChannel: true,
+    NaN: true,
+    Number: true,
+    Object: true,
+    Promise: true,
+    Proxy: true,
+    RangeError: true,
+    ReferenceError: true,
+    Reflect: true,
+    RegExp: true,
+    Set: true,
+    String: true,
+    Symbol: true,
+    SyntaxError: true,
+    TextDecoder: true,
+    TextEncoder: true,
+    TypeError: true,
+    URIError: true,
+    URL: true,
+    Uint16Array: true,
+    Uint32Array: true,
+    Uint8Array: true,
+    Uint8ClampedArray: true,
+    WeakMap: true,
+    WeakSet: true,
+    WebAssembly: true,
+    atob: true,
+    addEventListener: true,
+    removeEventListener: true,
+    btoa: true,
+    caches: true,
+    clearInterval: true,
+    clearTimeout: true,
+    console: true,
+    decodeURI: true,
+    decodeURIComponent: true,
+    document: true,
+    encodeURI: true,
+    encodeURIComponent: true,
+    escape: true,
+    fetch: true,
+    indexedDB: true,
+    isFinite: true,
+    isNaN: true,
+    location: true,
+    navigator: true,
+    onerror: true,
+    onrejectionhandled: true,
+    onunhandledrejection: true,
+    parseFloat: true,
+    parseInt: true,
+    performance: true,
+    postMessage: true,
+    requestAnimationFrame: true,
+    cancelAnimationFrame: true,
+    self: true,
+    setTimeout: true,
+    setInterval: true,
+    unescape: true,
+};
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A constructor factory for a Material class. The Material is defined based on
+ * a provided implementation for all specified 3DOM scene graph element types.
+ *
+ * The sole reason for using this factory pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ *
+ * @see ../api.ts
+ */
+function defineMaterial(ThreeDOMElement) {
+    const $pbrMetallicRoughness = Symbol('pbrMetallicRoughness');
+    const $kernel = Symbol('kernel');
+    const $name = Symbol('name');
+    /**
+     * A Material represents a live material in the backing scene graph. Its
+     * primary purpose is to give the user write access to discrete properties
+     * (for example, the base color factor) of the backing material.
+     */
+    class Material extends ThreeDOMElement {
+        constructor(kernel, serialized) {
+            super(kernel, serialized);
+            this[$kernel] = kernel;
+            if (serialized.name != null) {
+                this[$name] = serialized.name;
+            }
+            this[$pbrMetallicRoughness] = kernel.deserialize('pbr-metallic-roughness', serialized.pbrMetallicRoughness);
+        }
+        /**
+         * The PBR properties that are assigned to this material, if any.
+         */
+        get pbrMetallicRoughness() {
+            return this[$pbrMetallicRoughness];
+        }
+    }
+    return Material;
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * The protocol between 3DOM execution contexts is strictly defined.
+ * Only specific types of messages are allowed, and their types are
+ * all included in the ThreeDOMMessageType map.
+ */
+const ThreeDOMMessageType = {
+    // === Host -> Scene Graph ===
+    // Used when the host execution context and scene graph execution context
+    // are negotiating a connection
+    HANDSHAKE: 1,
+    // A message that indicates that a custom script is meant to be imported
+    // into the scene graph execution context
+    IMPORT_SCRIPT: 2,
+    // A notification from the host execution context that the main Model has
+    // changed, including the sparse, serialized scene graph of the new Model
+    MODEL_CHANGED: 3,
+    // === Scene Graph => Host ===
+    // Notification sent to the host execution context to indicate that the
+    // scene graph execution context has finished initializing
+    CONTEXT_INITIALIZED: 4,
+    // A request from the scene graph execution context to mutate some detail
+    // of the backing host scene graph
+    MUTATE: 5
+};
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A constructor factory for a ModelKernel class. The ModelKernel is defined
+ * based on a provided implementation for all specified 3DOM scene graph
+ * element types.
+ *
+ * The sole reason for using this factory pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ */
+function defineModelKernel(Model, Material, PBRMetallicRoughness) {
+    var _a, _b, _c, _d;
+    const constructorsByType = {
+        'model': Model,
+        'material': Material,
+        'pbr-metallic-roughness': PBRMetallicRoughness
+    };
+    const $onMessageEvent = Symbol('onMessageEvent');
+    const $messageEventHandler = Symbol('messageEventHandler');
+    const $port = Symbol('port');
+    const $model = Symbol('model');
+    const $elementsByLocalId = Symbol('elementsByLocalId');
+    const $localIdsByElement = Symbol('localIdsByElement');
+    const $elementsByType = Symbol('elementsByType');
+    /**
+     * A ModelKernel is the core business logic implementation for a distinct
+     * Model that has been exposed to a script execution context. The ModelKernel
+     * is an internal detail, and should never be explicitly exposed to users of
+     * a Model.
+     *
+     * The ModelKernel primarily handles deserializing scene graph elements, and
+     * communicating mutations from the 3DOM execution context to the host
+     * execution context where the backing scene graph lives.
+     *
+     * A ModelKernel also maintains a comprehensive map of elements by type to
+     * assist scene graph elements in querying for their contemporaries.
+     */
+    class ModelKernel {
+        constructor(port, serialized) {
+            this[_a] = new Map();
+            this[_b] = new Map();
+            this[_c] = new Map();
+            this[_d] = (event) => this[$onMessageEvent](event);
+            const types = Object.keys(constructorsByType);
+            for (const type of types) {
+                this[$elementsByType].set(type, new Set());
+            }
+            this[$port] = port;
+            this[$port].addEventListener('message', this[$messageEventHandler]);
+            this[$port].start();
+            this[$model] = this.deserialize('model', serialized);
+        }
+        /**
+         * The root scene graph element, a Model, that is the entrypoint for the
+         * entire scene graph that is backed by this kernel.
+         */
+        get model() {
+            return this[$model];
+        }
+        /**
+         * Mutate a property of a property of a given scene graph element. All
+         * direct mutations of the scene graph are considered asynchronous. This
+         * method returns a Promise that resolves when the mutation has been
+         * successfully applied to the backing scene graph, and rejects if the
+         * mutation failed or is otherwise not allowed.
+         *
+         * TODO(#1006): How to validate values?
+         */
+        async mutate(element, property, value) {
+            if (!this[$localIdsByElement].has(element)) {
+                throw new Error('Cannot mutate unknown element');
+            }
+            const id = this[$localIdsByElement].get(element);
+            return new Promise((resolve, _reject) => {
+                this[$port].postMessage({ type: ThreeDOMMessageType.MUTATE, id, property, value });
+                // TODO(#1007): Actually wait for confirmation from host context
+                resolve();
+            });
+        }
+        /**
+         * Deserializes a JSON representation of a scene graph element into a live
+         * element that is backed by this ModelKernel.
+         */
+        deserialize(type, serialized) {
+            if (!(type in constructorsByType)) {
+                throw new Error(`Cannot deserialize unknown type: ${type}`);
+            }
+            const { id } = serialized;
+            const ElementConstructor = constructorsByType[type];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const element = new ElementConstructor(this, serialized);
+            this[$elementsByLocalId].set(id, element);
+            this[$localIdsByElement].set(element, id);
+            // We know that the all accepted types have been pre-populated in the
+            // [$elementsByType] map:
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            this[$elementsByType].get(type).add(element);
+            return element;
+        }
+        /**
+         * Look up all scene graph elements given a type string. Type strings
+         * are lower-cased, hyphenated versions of the constructor names of their
+         * corresponding classes. For example, a query for 'pbr-metallic-roughness'
+         * element types will yield the list of PBRMetallicRoughness elements in
+         * sparse tree order.
+         */
+        getElementsByType(type) {
+            if (!this[$elementsByType].has(type)) {
+                return [];
+            }
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            return Array.from(this[$elementsByType].get(type));
+        }
+        /**
+         * Deactivate the ModelKernel. This has the effect of blocking all future
+         * mutations to the scene graph. Once deactivated, a ModelKernel cannot be
+         * reactivated.
+         *
+         * The ModelKernel should be deactivated before it is disposed of, or else
+         * it will leak in memory.
+         */
+        deactivate() {
+            this[$port].close();
+            this[$port].removeEventListener('message', this[$messageEventHandler]);
+        }
+        [(_a = $elementsByLocalId, _b = $localIdsByElement, _c = $elementsByType, _d = $messageEventHandler, $onMessageEvent)](_event) {
+            // TODO(#1006): Handle future messages from the host execution context
+        }
+    }
+    return ModelKernel;
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A constructor factory for a Model class. The Model is defined based on a
+ * provided implementation for all specified 3DOM scene graph element types.
+ *
+ * The sole reason for using this factory pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ *
+ * @see ../api.ts
+ */
+function defineModel(ThreeDOMElement) {
+    var _a;
+    const $materials = Symbol('material');
+    const $kernel = Symbol('kernel');
+    /**
+     * A Model is the root element of a 3DOM scene graph. It is considered the
+     * element of provenance for all other elements that participate in the same
+     * graph. All other elements in the graph can be accessed in from the Model
+     * in some fashion.
+     */
+    class Model extends ThreeDOMElement {
+        constructor(kernel, serialized) {
+            super(kernel);
+            this[_a] = Object.freeze([]);
+            this[$kernel] = kernel;
+            for (const material of serialized.materials) {
+                this[$kernel].deserialize('material', material);
+            }
+        }
+        /**
+         * The set of Material elements in the graph, in sparse traversal order.
+         * Note that this set will include any Materials that are not part of the
+         * currently activate scene.
+         *
+         * TODO(#1002): This value needs to be sensitive to scene graph order
+         */
+        get materials() {
+            return this[$kernel].getElementsByType('material');
+        }
+        /**
+         * A Model has no owner model; it owns itself.
+         */
+        get ownerModel() {
+            return undefined;
+        }
+    }
+    _a = $materials;
+    return Model;
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A constructor factory for a PBRMetallicRoughness class. The
+ * PBRMetallicRoughness is defined based on a provided implementation for all
+ * specified 3DOM scene graph element types.
+ *
+ * The sole reason for using this factory pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ *
+ * @see ../api.ts
+ */
+function definePBRMetallicRoughness(ThreeDOMElement) {
+    const $kernel = Symbol('kernel');
+    const $baseColorFactor = Symbol('baseColorFactor');
+    /**
+     * PBRMetallicRoughness exposes the PBR properties for a given Material.
+     */
+    class PBRMetallicRoughness extends ThreeDOMElement {
+        constructor(kernel, serialized) {
+            super(kernel, serialized);
+            this[$kernel] = kernel;
+            this[$baseColorFactor] =
+                Object.freeze(serialized.baseColorFactor);
+        }
+        /**
+         * The base color factor of the material in RGBA format.
+         */
+        get baseColorFactor() {
+            return this[$baseColorFactor];
+        }
+        /**
+         * Set the base color factor of the material.
+         * Requires the material-properties capability.
+         *
+         * @see ../api.ts
+         */
+        async setBaseColorFactor(color) {
+            await this[$kernel].mutate(this, 'baseColorFactor', color);
+            this[$baseColorFactor] = Object.freeze(color);
+        }
+    }
+    return PBRMetallicRoughness;
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A constructor factory for a ThreeDOMElement class. The ThreeDOMElement is
+ * defined based on a provided implementation for all specified 3DOM scene graph
+ * element types.
+ *
+ * The sole reason for using this factory pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ *
+ * @see ../api.ts
+ */
+function defineThreeDOMElement() {
+    const $ownerModel = Symbol('ownerModel');
+    /**
+     * The basic implementation for all 3DOM scene graph participants.
+     * Scene graph nodes are distinguished by their "owner" Model. All scene
+     * graph nodes have an owner Model associated with them except for the
+     * sole Model in the scene graph, whose ownerModel property is not defined.
+     */
+    class ThreeDOMElement {
+        constructor(kernel) {
+            if (kernel == null) {
+                throw new Error('Illegal constructor');
+            }
+            this[$ownerModel] = kernel.model;
+        }
+        /**
+         * The Model of provenance for this scene graph element, or undefined if
+         * element is itself a Model.
+         */
+        get ownerModel() {
+            return this[$ownerModel];
+        }
+    }
+    return ThreeDOMElement;
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+const generateAPI = () => `${defineModelKernel.toString()}
+${defineThreeDOMElement.toString()}
+${defineModel.toString()}
+${defineMaterial.toString()}
+${definePBRMetallicRoughness.toString()}
+
+var ThreeDOMElement = defineThreeDOMElement();
+var Model = defineModel(ThreeDOMElement);
+var Material = defineMaterial(ThreeDOMElement);
+var PBRMetallicRoughness = definePBRMetallicRoughness(ThreeDOMElement);
+
+var ModelKernel = defineModelKernel(
+  Model,
+  Material,
+  PBRMetallicRoughness
+);
+
+// Populate the global scope with constructors
+// so that author code can use instanceof checks
+self.ThreeDOMElement = ThreeDOMElement;
+self.Model = Model;
+self.Material = Material;
+self.PBRMetallicRoughness = PBRMetallicRoughness;`;
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * Given a 3DOM execution context, patch any methods that give write access
+ * to otherwise configurable material properties so that they are automatically
+ * rejected when invoked.
+ */
+function filterMaterialProperties() {
+    const errorMessage = 'Capability "material-properties" not allowed';
+    Object.defineProperty(this.PBRMetallicRoughness.prototype, 'setBaseColorFactor', {
+        value: () => {
+            throw new Error(errorMessage);
+        },
+        configurable: false,
+        writable: false
+    });
+}
+/**
+ * Given a 3DOM execution context, patch any methods, classes or other APIs
+ * related to Web Messaging so that they throw or are otherwise rendered
+ * impotent.
+ *
+ * TODO(#1001): We probably need to crawl up the prototype chain on this one
+ */
+function filterMessaging() {
+    const errorMessage = 'Capability "messaging" not allowed';
+    const rejectInvocation = () => {
+        throw new Error(errorMessage);
+    };
+    const originalAddEventListener = this.addEventListener;
+    Object.defineProperties(this, {
+        postMessage: { value: rejectInvocation, configurable: false },
+        MessageChannel: { value: rejectInvocation, configurable: false },
+        MessageEvent: { value: rejectInvocation, configurable: false },
+        onmessage: {
+            set() {
+                rejectInvocation();
+            },
+            configurable: false,
+        },
+        addEventListener: {
+            value: function (type, listener, options) {
+                if (type === 'message') {
+                    rejectInvocation();
+                }
+                originalAddEventListener.call(this, type, listener, options);
+            },
+            configurable: false
+        }
+    });
+}
+/**
+ * Given a 3DOM execution context, patch the global Fetch API so that any
+ * attempts to perform network operations are immediately rejected.
+ */
+function filterFetch() {
+    Object.defineProperties(this, {
+        fetch: {
+            value: () => {
+                throw new Error('Capability "fetch" not allowed');
+            },
+            configurable: false
+        }
+    });
+}
+const capabilityFilterMap = {
+    'messaging': filterMessaging,
+    'material-properties': filterMaterialProperties,
+    'fetch': filterFetch
+};
+/**
+ * Given a list of 3DOM capability strings, this factory produces a script
+ * fragment that patches the global execution context so that any omitted
+ * capabilities are explicitly disallowed.
+ */
+const generateCapabilityFilter = (capabilities) => {
+    const filtersToApply = Object.keys(capabilityFilterMap);
+    const capabilityFilters = [];
+    for (const capability of filtersToApply) {
+        // Skip filters that are allowed by the list of capabilities
+        if (capabilities.indexOf(capability) > -1) {
+            continue;
+        }
+        const filter = capabilityFilterMap[capability];
+        capabilityFilters.push(`(${filter.toString()}).call(self);`);
+    }
+    return capabilityFilters.join('\n');
+};
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * Adapted from WorkerDOM
+ * NOTE: The context could also be DedicatedWorkerGlobalScope, but the
+ * TypeScript WebWorker lib seems to conflict with the dom lib
+ *
+ * @see https://github.com/ampproject/worker-dom/blob/master/src/worker-thread/index.amp.ts
+ */
+function patchContext(context, allowList) {
+    // Crawl up the prototype chain until we get to EventTarget so that we
+    // don't go overboard deleting fundamental properties of things:
+    while (context && context.constructor !== EventTarget) {
+        Object.getOwnPropertyNames(context).forEach((property) => {
+            // eslint-disable-next-line no-prototype-builtins
+            if (allowList.hasOwnProperty(property) && allowList[property] === true) {
+                // Skip allowed property
+                return;
+            }
+            try {
+                delete context[property];
+            }
+            catch (e) {
+                console.warn(e);
+            }
+        });
+        context = Object.getPrototypeOf(context);
+    }
+}
+/**
+ * Given an "allow" list that maps context property names to booleans (true for
+ * allowed, false for disallowed), this factory produces a script chunk that
+ * can patch the global context so that only allowed properties/APIs are
+ * available.
+ *
+ * Disallowed properties are deleted on the global context and its prototype
+ * chain. Omiting a property from the allow list is tantamount to disallowing
+ * it.
+ */
+const generateContextPatch = (allowList) => `(${patchContext.toString()})(self, ${JSON.stringify(allowList)});`;
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * A function that will be stringified and appended the a runtime-generated
+ * execution context script to initialize the scene graph execution context.
+ *
+ * The sole reason for using this pattern is to enable sound type
+ * checking while also providing for the ability to stringify the factory so
+ * that it can be part of a runtime-generated Worker script.
+ */
+function initialize(ModelKernel, preservedContext) {
+    let currentKernel = null;
+    preservedContext.addEventListener('message', (event) => {
+        const { data } = event;
+        if (data && data.type && data.type === ThreeDOMMessageType.HANDSHAKE) {
+            const globalPort = event.ports[0];
+            globalPort.addEventListener('message', (event) => {
+                const { data } = event;
+                if (data && data.type) {
+                    switch (data.type) {
+                        // Instantiate a new ModelKernel, and notify the execution context
+                        // of the new Model with a 'model-change' event:
+                        case ThreeDOMMessageType.MODEL_CHANGED: {
+                            const previousModel = currentKernel != null ? currentKernel.model : undefined;
+                            const serialized = data.model;
+                            const port = event.ports[0];
+                            if (currentKernel != null) {
+                                currentKernel.deactivate();
+                            }
+                            else if (serialized == null) {
+                                // Do not proceed if transitioning from null to null
+                                break;
+                            }
+                            if (serialized != null) {
+                                currentKernel = new ModelKernel(port, serialized);
+                                this.model = currentKernel.model;
+                            }
+                            else {
+                                currentKernel = null;
+                                this.model = undefined;
+                            }
+                            const modelChangeEvent = new Event('model-change');
+                            modelChangeEvent.previousModel = previousModel;
+                            modelChangeEvent.model = this.model;
+                            this.dispatchEvent(modelChangeEvent);
+                            break;
+                        }
+                        // Import an external script into the execution context:
+                        case ThreeDOMMessageType.IMPORT_SCRIPT: {
+                            const url = data.url;
+                            if (url) {
+                                preservedContext.importScripts(url);
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+            globalPort.start();
+            // Notify the host execution context that the scene graph execution
+            // is ready:
+            globalPort.postMessage({ type: ThreeDOMMessageType.CONTEXT_INITIALIZED });
+        }
+    });
+}
+/**
+ * A factory that produces a stringified initializer function.
+ */
+const generateInitializer = () => initialize.toString();
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var _a$e, _b$c;
+const $modelGraft = Symbol('modelGraft');
+const $port = Symbol('port');
+const $messageEventHandler = Symbol('messageEventHandler');
+const $onMessageEvent = Symbol('onMessageEvent');
+/**
+ * A ModelGraftManipulator is an internal construct intended to consolidate
+ * any mutations that operate on the backing scene graph. It can be thought
+ * of as a host execution context counterpart to the ModelKernel in the scene
+ * graph execution context.
+ */
+class ModelGraftManipulator {
+    constructor(modelGraft, port) {
+        this[_a$e] = (event) => this[$onMessageEvent](event);
+        this[$modelGraft] = modelGraft;
+        this[$port] = port;
+        this[$port].addEventListener('message', this[$messageEventHandler]);
+        this[$port].start();
+    }
+    /**
+     * Clean up internal state so that the ModelGraftManipulator can be properly
+     * garbage collected.
+     */
+    dispose() {
+        this[$port].removeEventListener('message', this[$messageEventHandler]);
+        this[$port].close();
+    }
+    [(_a$e = $messageEventHandler, $onMessageEvent)](event) {
+        const { data } = event;
+        if (data && data.type) {
+            if (data.type === ThreeDOMMessageType.MUTATE) {
+                this[$modelGraft].mutate(data.id, data.property, data.value);
+            }
+        }
+    }
+}
+const ALL_CAPABILITIES = Object.freeze(['messaging', 'material-properties', 'fetch']);
+/**
+ * Constructs and returns a string representing a fully-formed scene graph
+ * execution context script, including context patching, capabilities and
+ * scene graph API constructs.
+ */
+const generateContextScriptSource = (capabilities = ALL_CAPABILITIES) => {
+    return `;(function() {
+var ThreeDOMMessageType = ${JSON.stringify(ThreeDOMMessageType)};
+
+var preservedContext = {
+  postMessage: self.postMessage.bind(self),
+  addEventListener: self.addEventListener.bind(self),
+  importScripts: self.importScripts.bind(self)
+};
+
+${generateContextPatch(ALLOWLISTED_GLOBALS)}
+${generateAPI()}
+${generateCapabilityFilter(capabilities)}
+${generateInitializer()}
+
+initialize.call(self, ModelKernel, preservedContext);
+
+})();`;
+};
+const $worker = Symbol('worker');
+const $workerInitializes = Symbol('workerInitializes');
+const $modelGraftManipulator = Symbol('modelGraftManipulator');
+/**
+ * A ThreeDOMExecutionContext is created in the host execution context that
+ * wishes to invoke scripts in a specially crafted and carefully isolated
+ * script context, referred to as the scene graph execution context. For
+ * practical implementation purposes, the scene graph execution context is
+ * a Worker whose global scope has been heavily patched before any custom
+ * script is subsequently invoked in it.
+ *
+ * The ThreeDOMExecutionContext must be given a set of allowed capabilities
+ * when it is created. The allowed capabilities cannot be changed after the
+ * scene graph execution context has been established.
+ */
+class ThreeDOMExecutionContext extends EventTarget {
+    constructor(capabilities) {
+        super();
+        this[_b$c] = null;
+        const contextScriptSource = generateContextScriptSource(capabilities);
+        const url = URL.createObjectURL(new Blob([contextScriptSource], { type: 'text/javascript' }));
+        this[$worker] = new Worker(url);
+        this[$workerInitializes] = new Promise((resolve) => {
+            const { port1, port2 } = new MessageChannel();
+            const onMessageEvent = (event) => {
+                if (event.data &&
+                    event.data.type === ThreeDOMMessageType.CONTEXT_INITIALIZED) {
+                    port1.removeEventListener('message', onMessageEvent);
+                    resolve(port1);
+                }
+            };
+            this[$worker].postMessage({ type: ThreeDOMMessageType.HANDSHAKE }, [port2]);
+            port1.addEventListener('message', onMessageEvent);
+            port1.start();
+        });
+    }
+    get worker() {
+        return this[$worker];
+    }
+    async changeModel(modelGraft) {
+        const port = await this[$workerInitializes];
+        const { port1, port2 } = new MessageChannel();
+        port.postMessage({
+            type: ThreeDOMMessageType.MODEL_CHANGED,
+            model: modelGraft != null && modelGraft.model != null ?
+                modelGraft.model.toJSON() :
+                null
+        }, [port2]);
+        const modelGraftManipulator = this[$modelGraftManipulator];
+        if (modelGraftManipulator != null) {
+            modelGraftManipulator.dispose();
+            this[$modelGraftManipulator] = null;
+        }
+        if (modelGraft != null) {
+            this[$modelGraftManipulator] =
+                new ModelGraftManipulator(modelGraft, port1);
+        }
+    }
+    /**
+     * Evaluate an arbitrary chunk of script in the scene graph execution context.
+     * The script is guaranteed to be evaluated after the scene graph execution
+     * context is fully initialized. It is not guaranteed to be evaluated before
+     * or after a Model is made available in the scene graph execution context.
+     *
+     * Note that web browsers do not universally support module scripts ("ESM") in
+     * Workers, so for now all scripts must be valid non-module scripts.
+     */
+    async eval(scriptSource) {
+        const port = await this[$workerInitializes];
+        const url = URL.createObjectURL(new Blob([scriptSource], { type: 'text/javascript' }));
+        port.postMessage({ type: ThreeDOMMessageType.IMPORT_SCRIPT, url });
+    }
+    /**
+     * Terminates the scene graph execution context, closes the designated
+     * messaging port and generally cleans up the ThreeDOMExecutionContext
+     * so that it can be properly garbage collected.
+     */
+    async terminate() {
+        this[$worker].terminate();
+        const modelGraftManipulator = this[$modelGraftManipulator];
+        if (modelGraftManipulator != null) {
+            modelGraftManipulator.dispose();
+            this[$modelGraftManipulator] = null;
+        }
+        const port = await this[$workerInitializes];
+        port.close();
+    }
+}
+_b$c = $modelGraftManipulator;
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * Produces a "locally" unique ID. This ID is only guaranteed to be unique
+ * over the lifetime of the function and in the current execution context.
+ */
+const getLocallyUniqueId = (() => {
+    let id = 0;
+    return () => id++;
+})();
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var _a$f;
+const $relatedObject = Symbol('relatedObject');
+const $graft = Symbol('graft');
+const $id = Symbol('id');
+/**
+ * A SerializableThreeDOMElement is the common primitive of all scene graph
+ * elements that have been facaded in the host execution context. It adds
+ * a common interface to these elements in support of convenient
+ * serializability.
+ */
+class ThreeDOMElement {
+    constructor(graft, relatedObject) {
+        this[_a$f] = getLocallyUniqueId();
+        this[$relatedObject] = relatedObject;
+        this[$graft] = graft;
+        graft.adopt(this);
+    }
+    /**
+     * The Model of provenance for this scene graph element.
+     */
+    get ownerModel() {
+        return this[$graft].model;
+    }
+    /**
+     * The unique ID that marks this element. In generally, an ID should only be
+     * considered unique to the element in the context of its scene graph. These
+     * IDs are not guaranteed to be stable across script executions.
+     */
+    get internalID() {
+        return this[$id];
+    }
+    /**
+     * Some (but not all) scene graph elements may have an optional name. The
+     * Object3D.prototype.name property is sometimes auto-generated by Three.js.
+     * We only want to expose a name that is set in the source glTF, so Three.js
+     * generated names are ignored.
+     */
+    get name() {
+        const relatedObject = this[$relatedObject];
+        if (relatedObject.isObject3D ||
+            relatedObject.isMaterial) {
+            return relatedObject.userData ?
+                relatedObject.userData.name :
+                null;
+        }
+        return null;
+    }
+    /**
+     * The backing Three.js scene graph construct for this element.
+     */
+    get relatedObject() {
+        return this[$relatedObject];
+    }
+    toJSON() {
+        const serialized = { id: this[$id] };
+        const { name } = this;
+        if (name != null) {
+            serialized.name = name;
+        }
+        return serialized;
+    }
+}
+_a$f = $id;
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+const $threeMaterial = Symbol('threeMaterial');
+/**
+ * GraftPBRMetallicRoughness
+ * @see https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#pbrmetallicroughness
+ */
+class PBRMetallicRoughness extends ThreeDOMElement {
+    get [$threeMaterial]() {
+        return this[$relatedObject];
+    }
+    constructor(graft, material) {
+        super(graft, material);
+    }
+    get baseColorFactor() {
+        const material = this[$threeMaterial];
+        if (material.color) {
+            return [...material.color.toArray(), material.opacity];
+        }
+        else {
+            return [1, 1, 1, 1];
+        }
+    }
+    set baseColorFactor(value) {
+        this[$threeMaterial].color.fromArray(value);
+        this[$threeMaterial].opacity = value[3];
+    }
+    toJSON() {
+        const serialized = super.toJSON();
+        serialized.baseColorFactor = this.baseColorFactor;
+        return serialized;
+    }
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+const $pbrMetallicRoughness = Symbol('pbrMetallicRoughness');
+/**
+ * GraftMaterial
+ * @see https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#material
+ */
+class Material$1 extends ThreeDOMElement {
+    constructor(graft, material) {
+        super(graft, material);
+        this[$pbrMetallicRoughness] = new PBRMetallicRoughness(graft, material);
+    }
+    get pbrMetallicRoughness() {
+        return this[$pbrMetallicRoughness];
+    }
+    toJSON() {
+        const serialized = super.toJSON();
+        serialized.pbrMetallicRoughness = this.pbrMetallicRoughness.toJSON();
+        return serialized;
+    }
+}
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var _a$g, _b$d;
+const $modelUri = Symbol('modelUri');
+const $gltf = Symbol('gltf');
+const $materials = Symbol('materials');
+/**
+ * A Model facades the top-level GLTF object returned by Three.js' GLTFLoader.
+ * Currently, the model only bothers itself with the materials in the Three.js
+ * scene graph.
+ */
+class Model$1 extends ThreeDOMElement {
+    constructor(graft, modelUri, gltf) {
+        super(graft, gltf);
+        this[_a$g] = '';
+        this[_b$d] = [];
+        this[$modelUri] = modelUri;
+        this[$gltf] = gltf;
+        const visitedMaterials = new Set();
+        gltf.scene.traverse((object3D) => {
+            const maybeMesh = object3D;
+            let meshMaterials = [];
+            if (maybeMesh.isMesh && maybeMesh.material != null) {
+                meshMaterials = Array.isArray(maybeMesh.material) ?
+                    maybeMesh.material :
+                    [maybeMesh.material];
+            }
+            for (const material of meshMaterials) {
+                if (visitedMaterials.has(material)) {
+                    continue;
+                }
+                this[$materials].push(new Material$1(graft, material));
+                visitedMaterials.add(material);
+            }
+        });
+    }
+    /**
+     * A flat list of all unique materials found in this scene graph. Materials
+     * are listed in the order they appear during pre-order, depth-first traveral
+     * of the scene graph.
+     *
+     * TODO(#1003): How do we handle non-active scenes?
+     */
+    get materials() {
+        return this[$materials];
+    }
+    toJSON() {
+        const serialized = super.toJSON();
+        serialized.modelUri = this[$modelUri];
+        serialized.materials =
+            this[$materials].map((material) => material.toJSON());
+        return serialized;
+    }
+}
+_a$g = $modelUri, _b$d = $materials;
+
+/* @license
+ * Copyright 2020 Google LLC. All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var _a$h;
+const $model = Symbol('model');
+const $elementsByInternalId = Symbol('elementsByInternalId');
+/**
+ * ModelGraft
+ *
+ * This is a coordination primitive between a scene graph as represented by the
+ * output for Three.js' GLTFLoader and a counterpart 3DOM facade. Since this is
+ * the Three.js-specific implementation of the facade, the input is a GLTF-like
+ * object whose keys refer to Three.js-specific constructs (e.g., gltf.scene is
+ * a THREE.Scene).
+ *
+ * When created, the ModelGraft produces a Model that can be traversed and
+ * manipulated to mutate the Three.js scene graph synchronously (but
+ * indirectly). The benefit of this is that mutations to the Three.js scene can
+ * be performed in a Three.js-agnostic fashion that is potentially portable to
+ * alternative rendering backends.
+ *
+ * The scene graph representation produced by the ModelGraft is designed to
+ * match the structures described in the glTF 2.0 spec as closely as possible.
+ * Where there are deviations, it is usually for the purpose of making
+ * synchronization easier, or else for ergonomics. For example, in glTF 2.0, the
+ * graph is a series of flat arrays where nodes cross-reference each other by
+ * index to represent hierarchy, but in a Model nodes have array members
+ * containing refrences to their hierarchical children.
+ *
+ * An important goal of ModelGraft is to enable a scene in one JavaScript
+ * context to be manipulated by script in a remote context, such as a distant
+ * worker thread or even a different process. So, every node in the graph
+ * is able to be serialized, and the serialized form includes an ID that is
+ * locally unique to the ModelGraft instance that the node came from so that
+ * the remote context can refer back to it. A ModelGraft can be thought of as
+ * the host execution context counterpart to the ModelKernel in the scene graph
+ * execution context.
+ */
+class ModelGraft extends EventTarget {
+    constructor(modelUri, gltf) {
+        super();
+        this[_a$h] = new Map();
+        this[$model] = new Model$1(this, modelUri, gltf);
+    }
+    get model() {
+        return this[$model];
+    }
+    getElementByInternalId(id) {
+        const element = this[$elementsByInternalId].get(id);
+        if (element == null) {
+            return null;
+        }
+        return element;
+    }
+    adopt(element) {
+        this[$elementsByInternalId].set(element.internalID, element);
+    }
+    mutate(id, property, value) {
+        // TODO(#1005): Manipulations probably need to be validated against
+        // allowed capabilities here. We already do this on the scene graph
+        // execution context side, but it would be safer to do it on both sides
+        const element = this.getElementByInternalId(id);
+        if (element != null && property in element) {
+            element[property] = value;
+            this.dispatchEvent(new CustomEvent('mutation', { detail: { element: element } }));
+        }
+    }
+}
+_a$h = $elementsByInternalId;
+
 var __decorate$8 = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof undefined === "function") r = undefined(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+const SCENE_GRAPH_SCRIPT_TYPE = 'experimental-scene-graph-worklet';
+const VALID_CAPABILITIES = new Set(['messaging', 'fetch', 'material-properties']);
+const $onChildListMutation = Symbol('onChildListMutation');
+const $childListMutationHandler = Symbol('childListMutationHandler');
+const $mutationObserver = Symbol('mutationObserver');
+const $createExecutionContext = Symbol('createExecutionContext');
+const $onScriptElementAdded = Symbol('onScriptElementAdded');
+const $executionContext = Symbol('executionContext');
+const $updateExecutionContextModel = Symbol('updateExecutionContextModel');
+const $modelGraft$1 = Symbol('modelGraft');
+const $onModelGraftMutation = Symbol('onModelGraftMutation');
+const $modelGraftMutationHandler = Symbol('modelGraftMutationHandler');
+const SceneGraphMixin = (ModelViewerElement) => {
+    var _a, _b, _c, _d;
+    var _e;
+    class SceneGraphModelViewerElement extends ModelViewerElement {
+        constructor() {
+            super(...arguments);
+            this[_e] = null;
+            this[_a] = (records) => this[$onChildListMutation](records);
+            this[_b] = (event) => this[$onModelGraftMutation](event);
+            this[_c] = new MutationObserver(this[$childListMutationHandler]);
+            this[_d] = null;
+        }
+        get worklet() {
+            const executionContext = this[$executionContext];
+            return executionContext != null ? executionContext.worker : null;
+        }
+        connectedCallback() {
+            super.connectedCallback();
+            this[$mutationObserver].observe(this, { childList: true });
+            const script = this.querySelector(`script[type="${SCENE_GRAPH_SCRIPT_TYPE}"]:last-of-type`);
+            if (script != null && script.textContent) {
+                this[$onScriptElementAdded](script);
+            }
+        }
+        disconnectedCallback() {
+            super.disconnectedCallback();
+            this[$mutationObserver].disconnect();
+            if (this[$executionContext] != null) {
+                this[$executionContext].terminate();
+                this[$executionContext] = null;
+            }
+        }
+        updated(changedProperties) {
+            super.updated(changedProperties);
+            if (changedProperties.has($modelGraft$1)) {
+                const oldModelGraft = changedProperties.get($modelGraft$1);
+                if (oldModelGraft != null) {
+                    oldModelGraft.removeEventListener('mutation', this[$modelGraftMutationHandler]);
+                }
+                const modelGraft = this[$modelGraft$1];
+                if (modelGraft != null) {
+                    modelGraft.addEventListener('mutation', this[$modelGraftMutationHandler]);
+                }
+            }
+        }
+        [(_e = $modelGraft$1, _a = $childListMutationHandler, _b = $modelGraftMutationHandler, _c = $mutationObserver, _d = $executionContext, $onModelLoad)](event) {
+            super[$onModelLoad](event);
+            this[$updateExecutionContextModel]();
+        }
+        [$onChildListMutation](records) {
+            if (this.parentNode == null) {
+                return;
+            }
+            let lastScriptElement = null;
+            for (const record of records) {
+                for (const node of Array.from(record.addedNodes)) {
+                    if (node instanceof HTMLScriptElement && node.textContent &&
+                        node.getAttribute('type') === SCENE_GRAPH_SCRIPT_TYPE) {
+                        lastScriptElement = node;
+                    }
+                }
+            }
+            if (lastScriptElement != null) {
+                this[$onScriptElementAdded](lastScriptElement);
+            }
+        }
+        [$onScriptElementAdded](script) {
+            if (!script.textContent ||
+                script.getAttribute('type') !== SCENE_GRAPH_SCRIPT_TYPE) {
+                return;
+            }
+            const allowString = script.getAttribute('allow') || '';
+            const allowList = allowString.split(';')
+                .map((fragment) => fragment.trim())
+                .filter((capability) => VALID_CAPABILITIES.has(capability));
+            this[$createExecutionContext](script.textContent, allowList);
+        }
+        [$createExecutionContext](scriptSource, capabilities) {
+            const executionContext = this[$executionContext];
+            if (executionContext != null) {
+                executionContext.terminate();
+            }
+            this[$executionContext] = new ThreeDOMExecutionContext(capabilities);
+            this[$executionContext].eval(scriptSource);
+            this.dispatchEvent(new CustomEvent('worklet-created', { detail: { worklet: this.worklet } }));
+            this[$updateExecutionContextModel]();
+        }
+        [$updateExecutionContextModel]() {
+            const executionContext = this[$executionContext];
+            if (executionContext == null || this.parentNode == null) {
+                return;
+            }
+            const scene = this[$scene];
+            const modelGraft = this.loaded ?
+                new ModelGraft(scene.model.url || '', {
+                    scene: scene,
+                    scenes: [scene],
+                    animations: [],
+                    cameras: [],
+                    parser: {},
+                    asset: {},
+                    userData: {}
+                }) :
+                null;
+            executionContext.changeModel(modelGraft);
+            this[$modelGraft$1] = modelGraft;
+        }
+        [$onModelGraftMutation](_event) {
+            this[$needsRender]();
+        }
+    }
+    __decorate$8([
+        property({ type: Object })
+    ], SceneGraphModelViewerElement.prototype, _e, void 0);
+    return SceneGraphModelViewerElement;
+};
+
+const expect$t = chai.expect;
+const ASTRONAUT_GLB_PATH$4 = assetPath('models/Astronaut.glb');
+suite('ModelViewerElementBase with SceneGraphMixin', () => {
+    if (IS_IE11) {
+        console.warn('Skipping this suite for IE11 only');
+        return;
+    }
+    let nextId = 0;
+    let tagName;
+    let ModelViewerElement;
+    let element;
+    setup(() => {
+        tagName = `model-viewer-scene-graph-${nextId++}`;
+        ModelViewerElement = class extends SceneGraphMixin(ModelViewerElementBase) {
+            static get is() {
+                return tagName;
+            }
+        };
+        customElements.define(tagName, ModelViewerElement);
+        element = new ModelViewerElement();
+        document.body.appendChild(element);
+    });
+    teardown(() => {
+        const { worklet } = element;
+        if (worklet != null) {
+            worklet.terminate();
+        }
+        document.body.removeChild(element);
+    });
+    BasicSpecTemplate(() => ModelViewerElement, () => tagName);
+    suite('without a scene graph worklet script', () => {
+        suite('with a loaded model', () => {
+            setup(async () => {
+                element.src = ASTRONAUT_GLB_PATH$4;
+                await waitForEvent(element, 'load');
+                await rafPasses();
+            });
+            test('does not activate a scene graph worklet', () => {
+                expect$t(element.worklet).to.not.be.ok;
+            });
+        });
+    });
+    suite('with a scene graph worklet script', () => {
+        test('eventually creates a new worklet', async () => {
+            const script = document.createElement('script');
+            script.type = 'experimental-scene-graph-worklet';
+            script.textContent = 'console.log("Hello, worklet!");';
+            element.appendChild(script);
+            await waitForEvent(element, 'worklet-created');
+            expect$t(element.worklet).to.be.ok;
+        });
+        suite('with a loaded model', () => {
+            setup(async () => {
+                element.src = ASTRONAUT_GLB_PATH$4;
+                await waitForEvent(element, 'load');
+                await rafPasses();
+            });
+            test('allows the scene graph to be manipulated', async () => {
+                const scene = element[$scene];
+                const script = document.createElement('script');
+                script.type = 'experimental-scene-graph-worklet';
+                script.setAttribute('allow', 'material-properties; messaging');
+                script.textContent = `
+self.addEventListener('model-change', function() {
+  model.materials[0].pbrMetallicRoughness.setBaseColorFactor([1, 0, 0, 1]).then(function() {
+    self.postMessage('done');
+  });
+});
+`;
+                element.appendChild(script);
+                await waitForEvent(element, 'worklet-created');
+                await waitForEvent(element.worklet, 'message');
+                expect$t(scene.children[0]
+                    .children[0]
+                    .children[0]
+                    .children[0]
+                    .children[0]
+                    .material
+                    .color)
+                    .to.include({ r: 1, g: 0, b: 0 });
+            });
+        });
+    });
+});
+
+var __decorate$9 = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof undefined === "function") r = undefined(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
@@ -64764,25 +66337,25 @@ configuration or device capabilities');
             return false;
         }
     }
-    __decorate$8([
+    __decorate$9([
         property({ type: Boolean, attribute: 'ar' })
     ], ARModelViewerElement.prototype, "ar", void 0);
-    __decorate$8([
+    __decorate$9([
         property({ type: String, attribute: 'ar-scale' })
     ], ARModelViewerElement.prototype, "arScale", void 0);
-    __decorate$8([
+    __decorate$9([
         property({ type: Boolean, attribute: 'unstable-webxr' })
     ], ARModelViewerElement.prototype, "unstableWebxr", void 0);
-    __decorate$8([
+    __decorate$9([
         property({ converter: { fromAttribute: deserializeUrl }, attribute: 'ios-src' })
     ], ARModelViewerElement.prototype, "iosSrc", void 0);
-    __decorate$8([
+    __decorate$9([
         property({ type: String, attribute: 'quick-look-browsers' })
     ], ARModelViewerElement.prototype, "quickLookBrowsers", void 0);
     return ARModelViewerElement;
 };
 
-const expect$t = chai.expect;
+const expect$u = chai.expect;
 suite('ModelViewerElementBase with ARMixin', () => {
     suite('when registered', () => {
         let nextId = 0;
@@ -64807,9 +66380,9 @@ suite('ModelViewerElementBase with ARMixin', () => {
                     }
                 });
                 openSceneViewer('https://example.com/model.gltf?token=foo', 'Example model', 'auto');
-                expect$t(intentUrls.length).to.be.equal(1);
+                expect$u(intentUrls.length).to.be.equal(1);
                 const url = new URL(intentUrls[0]);
-                expect$t(url.search).to.match(/[\?&]token=foo(&|$)/);
+                expect$u(url.search).to.match(/[\?&]token=foo(&|$)/);
                 restoreAnchorClick();
             });
         });
@@ -64832,7 +66405,7 @@ suite('ModelViewerElementBase with ARMixin', () => {
                 }
             });
             test('hides the AR button if not on AR platform', () => {
-                expect$t(element.canActivateAR).to.be.equal(false);
+                expect$u(element.canActivateAR).to.be.equal(false);
             });
             test('shows the AR button if on AR platform');
         });
@@ -64852,7 +66425,7 @@ suite('ModelViewerElementBase with ARMixin', () => {
             if (IS_IOS) {
                 suite('on iOS Safari', () => {
                     test('hides the AR button', () => {
-                        expect$t(element.canActivateAR).to.be.equal(false);
+                        expect$u(element.canActivateAR).to.be.equal(false);
                     });
                     suite('with an ios-src', () => {
                         setup(async () => {
@@ -64860,7 +66433,7 @@ suite('ModelViewerElementBase with ARMixin', () => {
                             await timePasses();
                         });
                         test('shows the AR button', () => {
-                            expect$t(element.canActivateAR).to.be.equal(true);
+                            expect$u(element.canActivateAR).to.be.equal(true);
                         });
                     });
                 });
@@ -64868,7 +66441,7 @@ suite('ModelViewerElementBase with ARMixin', () => {
             else {
                 suite('on browsers that are not iOS Safari', () => {
                     test('hides the AR button', () => {
-                        expect$t(element.canActivateAR).to.be.equal(false);
+                        expect$u(element.canActivateAR).to.be.equal(false);
                     });
                     suite('with an ios-src', () => {
                         setup(async () => {
@@ -64876,7 +66449,7 @@ suite('ModelViewerElementBase with ARMixin', () => {
                             await timePasses();
                         });
                         test('still hides the AR button', () => {
-                            expect$t(element.canActivateAR).to.be.equal(false);
+                            expect$u(element.canActivateAR).to.be.equal(false);
                         });
                     });
                 });

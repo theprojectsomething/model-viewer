@@ -1,5 +1,4 @@
-import { Vector3 } from 'three';
-import ModelViewerElementBase from '../model-viewer-base.js';
+import ModelViewerElementBase, { Vector3D } from '../model-viewer-base.js';
 import { NumberNode } from '../styles/parsers.js';
 import { ChangeSource } from '../three-components/SmoothControls.js';
 import { Constructor } from '../utilities.js';
@@ -62,7 +61,7 @@ export declare interface ControlsInterface {
     interactionPolicy: InteractionPolicy;
     interactionPromptThreshold: number;
     getCameraOrbit(): SphericalPosition;
-    getCameraTarget(): Vector3;
+    getCameraTarget(): Vector3D;
     getFieldOfView(): number;
     jumpCameraToGoal(): void;
 }

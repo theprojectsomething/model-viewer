@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import ModelViewerElementBase from '../model-viewer-base.js';
+import ModelViewerElementBase, { Vector3D } from '../model-viewer-base.js';
 import { Constructor } from '../utilities.js';
 /**
  * Hotspots are configured by slot name, and this name must begin with "hotspot"
@@ -43,6 +43,10 @@ export declare class Hotspot extends CSS2DObject {
 }
 export declare interface AnnotationInterface {
     updateHotspot(config: HotspotConfiguration): void;
+    positionAndNormalFromPoint(pixelX: number, pixelY: number): {
+        position: Vector3D;
+        normal: Vector3D;
+    } | null;
 }
 /**
  * AnnotationMixin implements a declarative API to add hotspots and annotations.
